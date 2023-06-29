@@ -37,6 +37,7 @@ export const EDITOR_LANGUAGE_ROUTINGA: languages.IMonarchLanguage = {
     'dport',
     'fallback',
     'geoip',
+    'must_rules',
     'geosite',
     'ipversion',
     'l4proto',
