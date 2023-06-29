@@ -250,6 +250,7 @@ export const ExperimentPage = () => {
                           oldName: config.name,
                         })
                       }
+
                       openRenameModal()
                     }}
                   >
@@ -282,6 +283,7 @@ export const ExperimentPage = () => {
                           oldName: dns.name,
                         })
                       }
+
                       openRenameModal()
                     }}
                   >
@@ -314,6 +316,7 @@ export const ExperimentPage = () => {
                           oldName: routing.name,
                         })
                       }
+
                       openRenameModal()
                     }}
                   >
