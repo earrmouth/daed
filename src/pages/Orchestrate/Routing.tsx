@@ -1,7 +1,6 @@
-import type { PlainTextgFormModalRef } from '~/components/PlainTextFormModal'
+import type { PlainTextFormModalRef } from '~/components/PlainTextFormModal'
 import { useStore } from '@nanostores/react'
 import { Map, Settings2 } from 'lucide-react'
-
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -16,7 +15,6 @@ import { PlainTextFormModal } from '~/components/PlainTextFormModal'
 import { Section } from '~/components/Section'
 import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
-import { Code } from '~/components/ui/code'
 import { useDisclosure } from '~/hooks'
 import { defaultResourcesAtom } from '~/store'
 
@@ -28,7 +26,7 @@ export function Routing() {
   const removeRoutingMutation = useRemoveRoutingMutation()
   const renameRoutingMutation = useRenameRoutingMutation()
   const createRoutingMutation = useCreateRoutingMutation()
-  const updateRoutingFormModalRef = useRef<PlainTextgFormModalRef>(null)
+  const updateRoutingFormModalRef = useRef<PlainTextFormModalRef>(null)
   const updateRoutingMutation = useUpdateRoutingMutation()
 
   const [openedCreateRoutingFormModal, { open: openCreateRoutingFormModal, close: closeCreateRoutingFormModal }] =
@@ -64,9 +62,7 @@ export function Routing() {
           onSelect={() => selectRoutingMutation.mutate({ id: routing.id })}
           onRemove={routing.id !== defaultRoutingID ? () => removeRoutingMutation.mutate(routing.id) : undefined}
           onRename={(newName) => renameRoutingMutation.mutate({ id: routing.id, name: newName })}
-        >
-          <Code block>{routing.routing.string}</Code>
-        </SimpleCard>
+        />
       ))}
 
       <PlainTextFormModal

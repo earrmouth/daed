@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.18.0](https://github.com/daeuniverse/daed/compare/v0.17.0...v0.18.0) (2025-11-29)
+
+
+### Features
+
+* implement drag-and-drop functionality for input list items ([23a3a29](https://github.com/daeuniverse/daed/commit/23a3a291a19e182eb56b984d6380f64e7769c609))
+
+## [0.17.0](https://github.com/daeuniverse/daed/compare/v0.16.0...v0.17.0) (2025-11-29)
+
+
+### Features
+
+* make children prop optional and conditionally render button for details modal ([8809a2e](https://github.com/daeuniverse/daed/commit/8809a2e97f7c086334e1f3bd6e4ebecb2e412a2e))
+
+## [0.16.0](https://github.com/daeuniverse/daed/compare/v0.15.1...v0.16.0) (2025-11-29)
+
+
+### Features
+
+* enhance form structure and integrate actions portal for improved footer management ([1a94040](https://github.com/daeuniverse/daed/commit/1a940404631314545f1dbc827457c9ae43c0dece))
+
+## [0.15.1](https://github.com/daeuniverse/daed/compare/v0.15.0...v0.15.1) (2025-11-29)
+
+
+### Bug Fixes
+
+* **i18n:** update labels for sensitive content visibility in English and Chinese locales ([b86188e](https://github.com/daeuniverse/daed/commit/b86188ecbcb1a99fc2efa2634a00dd3cadc5eef1))
+
+## [0.15.0](https://github.com/daeuniverse/daed/compare/v0.14.0...v0.15.0) (2025-11-29)
+
+
+### Features
+
+* add sortable components for nodes and subscriptions ([f98f784](https://github.com/daeuniverse/daed/commit/f98f784008953eaa82bf4a8d9529fa06b722f4e8))
+* enhance draggable components with grip handles ([77552d7](https://github.com/daeuniverse/daed/commit/77552d71f2744bdab653a71f50213f1c4ba0d89b))
+* **monaco:** integrate Shiki for enhanced syntax highlighting and theme support ([02510f9](https://github.com/daeuniverse/daed/commit/02510f915921faa6a77e2082f92e2ba42f609cc6))
+
 ## [0.14.0](https://github.com/daeuniverse/daed/compare/v0.13.0...v0.14.0) (2025-11-29)
 
 

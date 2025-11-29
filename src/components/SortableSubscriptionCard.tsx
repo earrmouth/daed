@@ -1,5 +1,6 @@
 import type { DraggableResourceType } from '~/constants'
-import { useDraggable } from '@dnd-kit/core'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
 import React, { useState } from 'react'
 
@@ -9,9 +10,8 @@ import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { cn } from '~/lib/utils'
 
-export function DraggableResourceCard({
+export function SortableSubscriptionCard({
   id,
-  nodeID,
   subscriptionID,
   type,
   name,
@@ -21,7 +21,6 @@ export function DraggableResourceCard({
   children,
 }: {
   id: string
-  nodeID?: string
   subscriptionID?: string
   type: DraggableResourceType
   name: React.ReactNode
@@ -31,32 +30,39 @@ export function DraggableResourceCard({
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
-    data: { type, nodeID, subscriptionID },
+    data: { type, subscriptionID },
   })
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
 
   return (
     <>
       <div
         ref={setNodeRef}
+        style={style}
         className={cn(
           'group relative bg-card rounded-xl border transition-all duration-200',
-          'hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5',
-          'cursor-grab active:cursor-grabbing touch-none select-none',
-          isDragging && 'opacity-50 shadow-lg scale-[1.02] z-50',
+          'hover:shadow-md hover:border-primary/30',
+          isDragging && 'opacity-50 shadow-lg z-50',
         )}
-        {...listeners}
-        {...attributes}
       >
-        {/* Drag handle indicator */}
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        {/* Drag handle */}
+        <div
+          className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing touch-none"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
         </div>
 
-        <div className="p-3 pl-7">
-          {/* Header with protocol badge and name */}
+        <div className="p-3 pl-8">
+          {/* Header with badge and name */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {leftSection && (
@@ -68,11 +74,7 @@ export function DraggableResourceCard({
             </div>
 
             {/* Actions - visible on hover */}
-            <div
-              className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               {actions}
               <Button
                 variant="ghost"

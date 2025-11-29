@@ -1,10 +1,12 @@
 import type { UniqueIdentifier } from '@dnd-kit/core'
+import type { Monaco } from '@monaco-editor/react'
 import type { RenameFormModalRef } from '~/components'
 import { closestCenter, DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { restrictToParentElement, snapCenterToCursor } from '@dnd-kit/modifiers'
 import { arrayMove, rectSwappingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { faker } from '@faker-js/faker'
 import Editor from '@monaco-editor/react'
+import { useStore } from '@nanostores/react'
 import dayjs from 'dayjs'
 import { produce } from 'immer'
 import { FileInput, Pencil } from 'lucide-react'
@@ -39,17 +41,25 @@ import {
   Button,
   Code,
   Separator,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '~/components/ui'
-import { DialMode, DraggableResourceType, EDITOR_OPTIONS, LogLevel, RuleType } from '~/constants'
+import {
+  DialMode,
+  DraggableResourceType,
+  EDITOR_OPTIONS,
+  EDITOR_THEME_DARK,
+  EDITOR_THEME_LIGHT,
+  LogLevel,
+  RuleType,
+} from '~/constants'
 import { useDisclosure } from '~/hooks'
-import { handleEditorBeforeMount } from '~/monaco'
+import { applyShikiThemes, handleEditorBeforeMount, isShikiReady } from '~/monaco'
 import { Policy } from '~/schemas/gql/graphql'
+import { colorSchemeAtom } from '~/store'
 
 export function ExperimentPage() {
   const { t } = useTranslation()
+  const colorScheme = useStore(colorSchemeAtom)
+  const [, forceUpdate] = useState({})
 
   const [fakeConfigs, setFakeConfigs] = useState(
     faker.helpers.multiple(
@@ -240,9 +250,23 @@ export function ExperimentPage() {
       <Editor
         height={500}
         defaultValue="hello world"
-        theme="vs-dark"
+        theme={
+          isShikiReady()
+            ? colorScheme === 'dark'
+              ? EDITOR_THEME_DARK
+              : EDITOR_THEME_LIGHT
+            : colorScheme === 'dark'
+              ? 'vs-dark'
+              : 'vs'
+        }
         options={EDITOR_OPTIONS}
         beforeMount={handleEditorBeforeMount}
+        onMount={async (_editor, monacoInstance: Monaco) => {
+          if (!isShikiReady()) {
+            await applyShikiThemes(monacoInstance)
+            forceUpdate({})
+          }
+        }}
       />
 
       <div className="grid grid-cols-3 gap-4">
@@ -550,62 +574,49 @@ export function ExperimentPage() {
             }
             bordered
           >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {fakeNodes.map(({ id, name, tag, protocol, link }) => (
                 <DraggableResourceCard
                   key={id}
                   id={id}
                   type={DraggableResourceType.node}
                   name={name}
+                  leftSection={protocol}
                   onRemove={() => {
                     setFakeNodes((nodes) => nodes.filter((node) => node.id !== id))
                   }}
                 >
-                  <p className="font-semibold text-primary">{tag}</p>
-                  <p className="font-semibold">{protocol}</p>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="truncate">{link}</p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{link}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {tag && <p className="text-xs opacity-70">{tag}</p>}
+                  <p className="text-xs truncate opacity-70">{link}</p>
                 </DraggableResourceCard>
               ))}
             </div>
           </Section>
 
           <Section title={t('subscription')} onCreate={openImportSubscriptionModal} bordered>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {fakeSubscriptions.map(({ id, name, tag, link, updatedAt, nodes }) => (
                 <DraggableResourceCard
                   key={id}
                   id={id}
                   type={DraggableResourceType.subscription}
                   name={name}
+                  leftSection={`${nodes.length} ${t('node')}`}
                   onRemove={() => {
                     setFakeSubscriptions((subscriptions) =>
                       subscriptions.filter((subscription) => subscription.id !== id),
                     )
                   }}
                 >
-                  <p className="font-semibold text-primary">{tag}</p>
-                  <p className="font-semibold">{updatedAt}</p>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="truncate">{link}</p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{link}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {tag && <p className="text-xs opacity-70">{tag}</p>}
+                  <p className="text-xs opacity-70">{updatedAt}</p>
+                  <p className="text-xs truncate opacity-70">{link}</p>
 
-                  <div className="h-2.5" />
-
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2">
                     {nodes.map(({ id, name }) => (
-                      <Badge key={id}>{name}</Badge>
+                      <Badge key={id} variant="secondary" className="text-xs">
+                        {name}
+                      </Badge>
                     ))}
                   </div>
                 </DraggableResourceCard>
@@ -615,13 +626,13 @@ export function ExperimentPage() {
 
           <DragOverlay zIndex={9999} modifiers={[snapCenterToCursor]}>
             {draggingResource ? (
-              <Badge className="cursor-grabbing shadow-lg text-sm px-3 py-1">
-                <span className="truncate">
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-card shadow-lg cursor-grabbing">
+                <span className="text-sm font-medium truncate max-w-[200px]">
                   {draggingResource?.type === DraggableResourceType.node
                     ? fakeNodes.find((node) => node.id === draggingResource.id)?.name
                     : fakeSubscriptions.find((subscription) => subscription.id === draggingResource.id)?.name}
                 </span>
-              </Badge>
+              </div>
             ) : null}
           </DragOverlay>
         </DndContext>

@@ -2,8 +2,10 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { DraggingResource } from '~/constants'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { snapCenterToCursor } from '@dnd-kit/modifiers'
-import { useMemo, useRef, useState } from 'react'
-
+import { arrayMove } from '@dnd-kit/sortable'
+import { useStore } from '@nanostores/react'
+import { GripVertical } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
@@ -11,10 +13,9 @@ import {
   useNodesQuery,
   useSubscriptionsQuery,
 } from '~/apis'
-import { Badge } from '~/components/ui/badge'
 import { DraggableResourceType } from '~/constants'
 import { useMediaQuery } from '~/hooks'
-
+import { appStateAtom } from '~/store'
 import { Config } from './Config'
 import { DNS } from './DNS'
 import { GroupResource } from './Group'
@@ -32,6 +33,19 @@ export function OrchestratePage() {
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
 
+  // Use persistent store for sort order
+  const appState = useStore(appStateAtom)
+  const nodeSortOrder = appState.nodeSortableKeys as string[]
+  const subscriptionSortOrder = appState.subscriptionSortableKeys as string[]
+
+  const setNodeSortOrder = useCallback((order: string[]) => {
+    appStateAtom.setKey('nodeSortableKeys', order)
+  }, [])
+
+  const setSubscriptionSortOrder = useCallback((order: string[]) => {
+    appStateAtom.setKey('subscriptionSortableKeys', order)
+  }, [])
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -40,28 +54,78 @@ export function OrchestratePage() {
     }),
   )
 
+  // Get nodes from query (memoized to avoid dependency issues)
+  const nodes = useMemo(() => nodesQuery?.nodes.edges ?? [], [nodesQuery?.nodes.edges])
+  const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
+
+  // Get sorted node IDs
+  const sortedNodeIds = useMemo(() => {
+    if (nodes.length === 0) return []
+    const currentIds = nodes.map((n) => n.id)
+    const currentIdSet = new Set(currentIds)
+
+    const result = nodeSortOrder.filter((id) => currentIdSet.has(id))
+    const resultSet = new Set(result)
+
+    for (const id of currentIds) {
+      if (!resultSet.has(id)) {
+        result.push(id)
+      }
+    }
+
+    return result
+  }, [nodes, nodeSortOrder])
+
+  // Get sorted nodes
+  const sortedNodes = useMemo(() => {
+    if (nodes.length === 0) return []
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+    return sortedNodeIds.map((id) => nodeMap.get(id)).filter(Boolean) as typeof nodes
+  }, [nodes, sortedNodeIds])
+
+  // Get sorted subscription IDs
+  const sortedSubscriptionIds = useMemo(() => {
+    if (subscriptions.length === 0) return []
+    const currentIds = subscriptions.map((s) => s.id)
+    const currentIdSet = new Set(currentIds)
+
+    const result = subscriptionSortOrder.filter((id) => currentIdSet.has(id))
+    const resultSet = new Set(result)
+
+    for (const id of currentIds) {
+      if (!resultSet.has(id)) {
+        result.push(id)
+      }
+    }
+
+    return result
+  }, [subscriptions, subscriptionSortOrder])
+
+  // Get sorted subscriptions
+  const sortedSubscriptions = useMemo(() => {
+    if (subscriptions.length === 0) return []
+    const subMap = new Map(subscriptions.map((s) => [s.id, s]))
+    return sortedSubscriptionIds.map((id) => subMap.get(id)).filter(Boolean) as typeof subscriptions
+  }, [subscriptions, sortedSubscriptionIds])
+
   const draggingResourceDisplayName = useMemo(() => {
     if (draggingResource) {
       const { type, nodeID, groupID, subscriptionID } = draggingResource
 
       if (type === DraggableResourceType.node) {
-        const node = nodesQuery?.nodes.edges.find((node) => node.id === nodeID)
+        const node = nodes.find((node) => node.id === nodeID)
 
-        return node?.tag
+        return node?.tag || node?.name
       }
 
       if (type === DraggableResourceType.subscription) {
-        const subscription = subscriptionsQuery?.subscriptions.find(
-          (subscription) => subscription.id === subscriptionID,
-        )
+        const subscription = subscriptions.find((subscription) => subscription.id === subscriptionID)
 
         return subscription?.tag || subscription?.link
       }
 
       if (type === DraggableResourceType.subscription_node) {
-        const subscription = subscriptionsQuery?.subscriptions.find(
-          (subscription) => subscription.id === subscriptionID,
-        )
+        const subscription = subscriptions.find((subscription) => subscription.id === subscriptionID)
         const node = subscription?.nodes.edges.find((node) => node.id === nodeID)
 
         return node?.name
@@ -72,7 +136,7 @@ export function OrchestratePage() {
 
         const node = group?.nodes.find((node) => node.id === nodeID)
 
-        return node?.name
+        return node?.tag || node?.name
       }
 
       if (type === DraggableResourceType.groupSubscription) {
@@ -83,7 +147,7 @@ export function OrchestratePage() {
         return subscription?.tag
       }
     }
-  }, [draggingResource, groupsQuery?.groups, nodesQuery?.nodes.edges, subscriptionsQuery?.subscriptions])
+  }, [draggingResource, groupsQuery?.groups, nodes, subscriptions])
 
   const onDragStart = (e: DragStartEvent) => {
     const rect = e.active.rect.current.initial
@@ -94,9 +158,57 @@ export function OrchestratePage() {
   }
 
   const onDragEnd = (e: DragEndEvent) => {
-    const { over } = e
+    const { active, over } = e
 
     if (over?.id && draggingResource) {
+      const overId = String(over.id)
+      const activeId = String(active.id)
+
+      // Check if sorting nodes (both are node-* IDs)
+      if (
+        draggingResource.type === DraggableResourceType.node &&
+        activeId.startsWith('node-') &&
+        overId.startsWith('node-')
+      ) {
+        const activeNodeId = activeId.replace('node-', '')
+        const overNodeId = overId.replace('node-', '')
+
+        if (activeNodeId !== overNodeId) {
+          const oldIndex = sortedNodeIds.indexOf(activeNodeId)
+          const newIndex = sortedNodeIds.indexOf(overNodeId)
+
+          if (oldIndex !== -1 && newIndex !== -1) {
+            setNodeSortOrder(arrayMove(sortedNodeIds, oldIndex, newIndex))
+          }
+        }
+
+        setDraggingResource(null)
+        return
+      }
+
+      // Check if sorting subscriptions (both are subscription-* IDs)
+      if (
+        draggingResource.type === DraggableResourceType.subscription &&
+        activeId.startsWith('subscription-') &&
+        overId.startsWith('subscription-')
+      ) {
+        const activeSubId = activeId.replace('subscription-', '')
+        const overSubId = overId.replace('subscription-', '')
+
+        if (activeSubId !== overSubId) {
+          const oldIndex = sortedSubscriptionIds.indexOf(activeSubId)
+          const newIndex = sortedSubscriptionIds.indexOf(overSubId)
+
+          if (oldIndex !== -1 && newIndex !== -1) {
+            setSubscriptionSortOrder(arrayMove(sortedSubscriptionIds, oldIndex, newIndex))
+          }
+        }
+
+        setDraggingResource(null)
+        return
+      }
+
+      // Handle dropping to group
       const group = groupsQuery?.groups.find((group) => group.id === over.id)
 
       if (
@@ -143,15 +255,16 @@ export function OrchestratePage() {
 
       <div ref={dndAreaRef} className={`grid gap-4 ${matchSmallScreen ? 'grid-cols-1' : 'grid-cols-3'}`}>
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <GroupResource highlight={!!draggingResource} />
-          <NodeResource />
-          <SubscriptionResource />
+          <GroupResource highlight={!!draggingResource} draggingResource={draggingResource} />
+          <NodeResource sortedNodes={sortedNodes} />
+          <SubscriptionResource sortedSubscriptions={sortedSubscriptions} />
 
           <DragOverlay zIndex={9999} modifiers={[snapCenterToCursor]}>
             {draggingResource && (
-              <Badge className="cursor-grabbing shadow-lg text-sm px-3 py-1">
-                <span className="truncate max-w-[150px]">{draggingResourceDisplayName}</span>
-              </Badge>
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-card shadow-lg cursor-grabbing">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                <span className="text-sm font-medium truncate max-w-[200px]">{draggingResourceDisplayName}</span>
+              </div>
             )}
           </DragOverlay>
         </DndContext>
